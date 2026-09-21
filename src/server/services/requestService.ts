@@ -1,10 +1,166 @@
 import { AppError } from "@/server/errors/AppError";
-import { findRequestById } from "@/server/repositories/requestQueries";
-import { updateRequestStatus } from "@/server/repositories/requestMutations";
 import {
+  findRequestById,
+  listRequests,
+  SORTABLE_COLUMNS,
+  type RequestListOptions,
+} from "@/server/repositories/requestQueries";
+import { findNotesByRequestId } from "@/server/repositories/noteRepository";
+import {
+  createRequest,
+  softRemoveRequest,
   updateRequest,
+  updateRequestStatus,
+  type CreateRequestInput,
   type UpdateRequestInput,
 } from "@/server/repositories/requestMutations";
+
+export function assertValidId(id: string) {
+  if (!/^[0-9a-f-]{36}$/i.test(id)) {
+    throw new AppError(400, "INVALID_ID", "That id is not a valid request id");
+  }
+}
+
+const listableReasons = [
+  "DAMAGED",
+  "WRONG_ITEM",
+  "SIZE_ISSUE",
+  "NOT_AS_DESCRIBED",
+  "CHANGED_MIND",
+];
+
+function validateRequestFields(input: UpdateRequestInput) {
+  if (!input.customerName.trim()) {
+    throw new AppError(422, "INVALID_CUSTOMER_NAME", "Customer name is required");
+  }
+
+  if (!input.customerContact.trim()) {
+    throw new AppError(422, "INVALID_CUSTOMER_CONTACT", "Customer contact is required");
+  }
+
+  if (!input.orderNumber.trim()) {
+    throw new AppError(422, "INVALID_ORDER_NUMBER", "Order number is required");
+  }
+
+  if (!input.item.trim()) {
+    throw new AppError(422, "INVALID_ITEM", "Item is required");
+  }
+
+  if (!Number.isInteger(input.quantity) || input.quantity <= 0) {
+    throw new AppError(422, "INVALID_QUANTITY", "Quantity must be a positive integer");
+  }
+
+  if (!listableReasons.includes(input.reason)) {
+    throw new AppError(
+      422,
+      "INVALID_REASON",
+      `reason must be one of: ${listableReasons.join(", ")}`
+    );
+  }
+}
+
+export async function createNewRequest(input: CreateRequestInput) {
+  validateRequestFields(input);
+
+  return createRequest(input);
+}
+
+type ListRequestsParams = {
+  search?: string;
+  status?: string;
+  reason?: string;
+  sortBy?: string;
+  sortOrder?: string;
+  page?: string;
+  pageSize?: string;
+};
+
+const listableStatuses = [
+  "OPEN",
+  "IN_REVIEW",
+  "APPROVED",
+  "REJECTED",
+  "COMPLETED",
+];
+
+export async function listExistingRequests(params: ListRequestsParams) {
+  if (params.status && !listableStatuses.includes(params.status)) {
+    throw new AppError(
+      422,
+      "INVALID_STATUS",
+      `status must be one of: ${listableStatuses.join(", ")}`
+    );
+  }
+
+  if (params.reason && !listableReasons.includes(params.reason)) {
+    throw new AppError(
+      422,
+      "INVALID_REASON",
+      `reason must be one of: ${listableReasons.join(", ")}`
+    );
+  }
+
+  if (params.sortBy && !SORTABLE_COLUMNS.includes(params.sortBy)) {
+    throw new AppError(
+      422,
+      "INVALID_SORT_BY",
+      `sortBy must be one of: ${SORTABLE_COLUMNS.join(", ")}`
+    );
+  }
+
+  if (
+    params.sortOrder &&
+    params.sortOrder !== "asc" &&
+    params.sortOrder !== "desc"
+  ) {
+    throw new AppError(
+      422,
+      "INVALID_SORT_ORDER",
+      "sortOrder must be asc or desc"
+    );
+  }
+
+  const page = params.page ? Number(params.page) : 1;
+
+  if (!Number.isInteger(page) || page < 1) {
+    throw new AppError(422, "INVALID_PAGE", "page must be a positive integer");
+  }
+
+  const pageSize = params.pageSize ? Number(params.pageSize) : 20;
+
+  if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100) {
+    throw new AppError(
+      422,
+      "INVALID_PAGE_SIZE",
+      "pageSize must be an integer between 1 and 100"
+    );
+  }
+
+  return listRequests({
+    search: params.search,
+    status: params.status as RequestListOptions["status"],
+    reason: params.reason as RequestListOptions["reason"],
+    sortBy: params.sortBy as RequestListOptions["sortBy"],
+    sortOrder: params.sortOrder as RequestListOptions["sortOrder"],
+    page,
+    pageSize,
+  });
+}
+
+export async function getRequestWithNotes(id: string) {
+  assertValidId(id);
+
+  const request = await findRequestById(id);
+
+  if (!request) {
+    throw new AppError(404, "REQUEST_NOT_FOUND", "Return request not found");
+  }
+
+  const notes = await findNotesByRequestId(id);
+
+  return { ...request, notes };
+}
+
 type RequestStatus =
   | "OPEN"
   | "IN_REVIEW"
@@ -38,6 +194,8 @@ type RequestResolution =
   | "REPLACEMENT"
   | "STORE_CREDIT";
 
+const resolutions = ["REFUND", "REPLACEMENT", "STORE_CREDIT"];
+
 export function validateApprovalDetails(
   resolution: RequestResolution | null,
   refundAmount: number | null
@@ -47,6 +205,14 @@ export function validateApprovalDetails(
       422,
       "RESOLUTION_REQUIRED",
       "An approved request must have a resolution"
+    );
+  }
+
+  if (!resolutions.includes(resolution)) {
+    throw new AppError(
+      422,
+      "INVALID_RESOLUTION",
+      `resolution must be one of: ${resolutions.join(", ")}`
     );
   }
 
@@ -71,13 +237,14 @@ export function validateApprovalDetails(
   }
 }
 
-
 export async function changeStatus(
   id: string,
   nextStatus: RequestStatus,
   resolution: RequestResolution | null = null,
   refundAmount: number | null = null
 ) {
+  assertValidId(id);
+
   const request = await findRequestById(id);
 
   if (!request) {
@@ -108,11 +275,13 @@ export async function changeStatus(
   );
 }
 
-
 export async function updateRequestDetails(
   id: string,
   input: UpdateRequestInput
 ) {
+  assertValidId(id);
+  validateRequestFields(input);
+
   const request = await findRequestById(id);
 
   if (!request) {
@@ -134,9 +303,9 @@ export async function updateRequestDetails(
   return updateRequest(id, input);
 }
 
-import { softRemoveRequest } from "@/server/repositories/requestMutations";
-
 export async function removeRequest(id: string) {
+  assertValidId(id);
+
   const request = await findRequestById(id);
 
   if (!request) {

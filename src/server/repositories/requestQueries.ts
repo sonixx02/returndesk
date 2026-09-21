@@ -41,6 +41,8 @@ const sortableColumns = {
   status: "status",
 } as const;
 
+export const SORTABLE_COLUMNS = Object.keys(sortableColumns);
+
 export async function listRequests(options: RequestListOptions) {
   const {
     search,
