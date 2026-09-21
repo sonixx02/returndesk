@@ -101,6 +101,17 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
+## Additional Polish & Core Strengthening
+
+Rather than adding superficial extra features, I chose to **strengthen what exists** to make ReturnDesk production-ready and reliable:
+- **Server Input Boundary Validations**: Implemented strict validation for text field length caps (100 chars), contact format validation (email and 7–20 digit phone format checking), positive integer quantity ranges (1–1000), and refund amount bounds.
+- **Database & Service Layer Race-Condition Safety**: Enforced duplicate live request checks in the service layer (`findLiveRequestByOrderItem`) as well as a partial unique index in PostgreSQL (`requests_one_live_order_item_idx`).
+- **Database Error Mapping**: Handled PostgreSQL constraint code `23505` in `errorResponse` to return clean HTTP 409 `DUPLICATE_LIVE_REQUEST` responses if concurrent requests bypass service checks.
+- **Zero Lints & Full Type Safety**: Fixed React Hook effect rendering side-effects, eliminating 100% of TypeScript and ESLint warnings.
+
+
+---
+
 ## What Is Done vs. What Is Left
 
 ### Done
@@ -126,4 +137,4 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ---
 
 ## Time Spent
-Approximately **6 hours** total spent on schema design, backend routes, business rules enforcement, UI implementation, seed data, and testing (from initial commit at 21:00 to completion at 03:00).
+Approximately **6-7 hours** total spent on schema design, backend routes, business rules enforcement, UI implementation, seed data, and testing
