@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   try {
     const params = request.nextUrl.searchParams;
 
-    const data = await listExistingRequests({
+    const result = await listExistingRequests({
       search: params.get("search") ?? undefined,
       status: params.get("status") ?? undefined,
       reason: params.get("reason") ?? undefined,
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
       pageSize: params.get("pageSize") ?? undefined,
     });
 
-    return Response.json({ data });
+    return Response.json(result);
   } catch (error) {
     return errorResponse(error);
   }

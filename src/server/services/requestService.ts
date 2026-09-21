@@ -136,7 +136,7 @@ export async function listExistingRequests(params: ListRequestsParams) {
     );
   }
 
-  return listRequests({
+  const data = await listRequests({
     search: params.search,
     status: params.status as RequestListOptions["status"],
     reason: params.reason as RequestListOptions["reason"],
@@ -145,6 +145,8 @@ export async function listExistingRequests(params: ListRequestsParams) {
     page,
     pageSize,
   });
+
+  return { data, page, hasMore: data.length === pageSize };
 }
 
 export async function getRequestWithNotes(id: string) {
