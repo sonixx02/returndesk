@@ -2,7 +2,8 @@
 
 ReturnDesk is a returns desk web application for an online store. It allows support agents to raise return requests, review them, approve/reject them, record resolutions (refunds, replacements, or store credit), keep ordered notes, and manage the request lifecycle.
 
-**Deployed Application:** [https://returndesk.vercel.app](https://returndesk.vercel.app) *(Update with your deployed URL)*
+**Deployed Application:** [https://returndesk-pi.vercel.app/](https://returndesk-pi.vercel.app/)
+
 
 ---
 
