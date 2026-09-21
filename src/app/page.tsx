@@ -44,19 +44,22 @@ export default function Home() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    const controller = new AbortController();
+
     const timeout = setTimeout(() => {
       setLoading(true);
       setError("");
 
       const params = new URLSearchParams();
-      if (search) params.set("search", search);
+      const trimmedSearch = search.trim();
+      if (trimmedSearch) params.set("search", trimmedSearch);
       if (status) params.set("status", status);
       if (reason) params.set("reason", reason);
       params.set("sortBy", sortBy);
       params.set("sortOrder", sortOrder);
       params.set("page", String(page));
 
-      fetch(`/api/requests?${params.toString()}`)
+      fetch(`/api/requests?${params.toString()}`, { signal: controller.signal })
         .then(async (res) => {
           const body = await res.json();
           if (!res.ok) {
@@ -65,12 +68,24 @@ export default function Home() {
           setData(body.data);
           setHasMore(body.hasMore);
         })
-        .catch((err) => setError(err.message))
-        .finally(() => setLoading(false));
+        .catch((err) => {
+          if (err.name !== "AbortError") {
+            setError(err instanceof Error ? err.message : "Something went wrong");
+          }
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) {
+            setLoading(false);
+          }
+        });
     }, 300);
 
-    return () => clearTimeout(timeout);
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
   }, [search, status, reason, sortBy, sortOrder, page]);
+
 
   return (
     <main className="max-w-5xl mx-auto p-4 w-full">
@@ -127,7 +142,10 @@ export default function Home() {
         </select>
         <select
           value={sortBy}
-          onChange={(e) => setSortBy(e.target.value)}
+          onChange={(e) => {
+            setSortBy(e.target.value);
+            setPage(1);
+          }}
           className="border rounded px-2 py-1 text-sm"
         >
           <option value="created_at">Created</option>
@@ -137,12 +155,16 @@ export default function Home() {
         </select>
         <select
           value={sortOrder}
-          onChange={(e) => setSortOrder(e.target.value)}
+          onChange={(e) => {
+            setSortOrder(e.target.value);
+            setPage(1);
+          }}
           className="border rounded px-2 py-1 text-sm"
         >
           <option value="desc">Desc</option>
           <option value="asc">Asc</option>
         </select>
+
       </div>
 
       {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
