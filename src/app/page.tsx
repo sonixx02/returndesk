@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 const STATUSES = ["OPEN", "IN_REVIEW", "APPROVED", "REJECTED", "COMPLETED"];
 const REASONS = [
@@ -31,7 +32,9 @@ type RequestRow = {
 };
 
 export default function Home() {
+  const router = useRouter();
   const [search, setSearch] = useState("");
+
   const [status, setStatus] = useState("");
   const [reason, setReason] = useState("");
   const [sortBy, setSortBy] = useState("created_at");
@@ -188,9 +191,17 @@ export default function Home() {
             </thead>
             <tbody>
               {data.map((r) => (
-                <tr key={r.id} className="border-b hover:bg-gray-50">
-                  <td className="py-2 px-2">
-                    <Link href={`/requests/${r.id}`} className="underline">
+                <tr
+                  key={r.id}
+                  onClick={() => router.push(`/requests/${r.id}`)}
+                  className="border-b hover:bg-gray-50 cursor-pointer"
+                >
+                  <td className="py-2 px-2 font-medium">
+                    <Link
+                      href={`/requests/${r.id}`}
+                      className="underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       {r.reference_number}
                     </Link>
                   </td>
@@ -207,6 +218,7 @@ export default function Home() {
                   </td>
                 </tr>
               ))}
+
             </tbody>
           </table>
         </div>
