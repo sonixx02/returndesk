@@ -2,8 +2,6 @@
 
 ReturnDesk is a returns desk web application for an online store. It allows support agents to raise return requests, review them, approve/reject them, record resolutions (refunds, replacements, or store credit), keep ordered notes, and manage the request lifecycle.
 
-**Deployed Application:** [https://returndesk-pi.vercel.app/](https://returndesk-pi.vercel.app/)
-
 
 ---
 
@@ -128,4 +126,4 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ---
 
 ## Time Spent
-Approximately **8 to 10 hours** total spent on schema design, backend routes, business rules enforcement, UI implementation, seed data, and testing.
+Approximately **6 hours** total spent on schema design, backend routes, business rules enforcement, UI implementation, seed data, and testing (from initial commit at 21:00 to completion at 03:00).
