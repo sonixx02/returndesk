@@ -1,4 +1,6 @@
+import "dotenv/config";
 import { Pool } from "pg";
+
 
 const globalForDb = globalThis as unknown as {
   pool: Pool | undefined;

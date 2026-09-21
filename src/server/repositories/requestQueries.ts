@@ -14,7 +14,38 @@ export async function findRequestById(id: string) {
   return result.rows[0] ?? null;
 }
 
+export async function findLiveRequestByOrderItem(
+  orderNumber: string,
+  item: string,
+  excludeId?: string
+) {
+  const values: unknown[] = [orderNumber.trim(), item.trim()];
+  let idCondition = "";
+
+  if (excludeId) {
+    values.push(excludeId);
+    idCondition = `AND id != $${values.length}`;
+  }
+
+  const result = await db.query(
+    `
+      SELECT id
+      FROM requests
+      WHERE LOWER(order_number) = LOWER($1)
+        AND LOWER(item) = LOWER($2)
+        AND status NOT IN ('REJECTED', 'COMPLETED')
+        AND removed_at IS NULL
+        ${idCondition}
+      LIMIT 1
+    `,
+    values
+  );
+
+  return result.rows[0] ?? null;
+}
+
 export type RequestListOptions = {
+
   search?: string;
   status?:
     | "OPEN"

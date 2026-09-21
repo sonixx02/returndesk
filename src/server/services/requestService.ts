@@ -1,5 +1,6 @@
 import { AppError } from "@/server/errors/AppError";
 import {
+  findLiveRequestByOrderItem,
   findRequestById,
   listRequests,
   SORTABLE_COLUMNS,
@@ -29,25 +30,77 @@ const listableReasons = [
   "CHANGED_MIND",
 ];
 
+// Validate contact format (allows standard email format or phone numbers)
+function isValidContact(contact: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const phoneRegex = /^\+?[0-9\s\-()]{7,20}$/;
+  return emailRegex.test(contact) || phoneRegex.test(contact);
+}
+
+// Validate field types, string length limits, and field formats
 function validateRequestFields(input: UpdateRequestInput) {
-  if (!input.customerName.trim()) {
+  if (typeof input.customerName !== "string" || !input.customerName.trim()) {
     throw new AppError(422, "INVALID_CUSTOMER_NAME", "Customer name is required");
   }
+  if (input.customerName.trim().length > 100) {
+    throw new AppError(
+      422,
+      "INVALID_CUSTOMER_NAME",
+      "Customer name cannot exceed 100 characters"
+    );
+  }
 
-  if (!input.customerContact.trim()) {
+  if (typeof input.customerContact !== "string" || !input.customerContact.trim()) {
     throw new AppError(422, "INVALID_CUSTOMER_CONTACT", "Customer contact is required");
   }
+  if (input.customerContact.trim().length > 100) {
+    throw new AppError(
+      422,
+      "INVALID_CUSTOMER_CONTACT",
+      "Customer contact cannot exceed 100 characters"
+    );
+  }
+  if (!isValidContact(input.customerContact.trim())) {
+    throw new AppError(
+      422,
+      "INVALID_CUSTOMER_CONTACT",
+      "Customer contact must be a valid email or phone number"
+    );
+  }
 
-  if (!input.orderNumber.trim()) {
+  if (typeof input.orderNumber !== "string" || !input.orderNumber.trim()) {
     throw new AppError(422, "INVALID_ORDER_NUMBER", "Order number is required");
   }
-
-  if (!input.item.trim()) {
-    throw new AppError(422, "INVALID_ITEM", "Item is required");
+  if (input.orderNumber.trim().length > 100) {
+    throw new AppError(
+      422,
+      "INVALID_ORDER_NUMBER",
+      "Order number cannot exceed 100 characters"
+    );
   }
 
-  if (!Number.isInteger(input.quantity) || input.quantity <= 0) {
-    throw new AppError(422, "INVALID_QUANTITY", "Quantity must be a positive integer");
+  if (typeof input.item !== "string" || !input.item.trim()) {
+    throw new AppError(422, "INVALID_ITEM", "Item is required");
+  }
+  if (input.item.trim().length > 100) {
+    throw new AppError(
+      422,
+      "INVALID_ITEM",
+      "Item name cannot exceed 100 characters"
+    );
+  }
+
+  if (
+    typeof input.quantity !== "number" ||
+    !Number.isInteger(input.quantity) ||
+    input.quantity <= 0 ||
+    input.quantity > 1000
+  ) {
+    throw new AppError(
+      422,
+      "INVALID_QUANTITY",
+      "Quantity must be an integer between 1 and 1000"
+    );
   }
 
   if (!listableReasons.includes(input.reason)) {
@@ -62,8 +115,22 @@ function validateRequestFields(input: UpdateRequestInput) {
 export async function createNewRequest(input: CreateRequestInput) {
   validateRequestFields(input);
 
+  // Prevent duplicate live requests for the same order number and item
+  const existingLive = await findLiveRequestByOrderItem(
+    input.orderNumber,
+    input.item
+  );
+  if (existingLive) {
+    throw new AppError(
+      409,
+      "DUPLICATE_LIVE_REQUEST",
+      "A live return request already exists for this order and item"
+    );
+  }
+
   return createRequest(input);
 }
+
 
 type ListRequestsParams = {
   search?: string;
@@ -219,11 +286,17 @@ export function validateApprovalDetails(
   }
 
   if (resolution === "REFUND") {
-    if (refundAmount === null || refundAmount <= 0) {
+    if (
+      refundAmount === null ||
+      typeof refundAmount !== "number" ||
+      !Number.isInteger(refundAmount) ||
+      refundAmount <= 0 ||
+      refundAmount > 10000000
+    ) {
       throw new AppError(
         422,
         "INVALID_REFUND_AMOUNT",
-        "Refund amount must be greater than zero"
+        "Refund amount must be a positive integer up to 10,000,000"
       );
     }
 
@@ -302,6 +375,19 @@ export async function updateRequestDetails(
     );
   }
 
+  const existingLive = await findLiveRequestByOrderItem(
+    input.orderNumber,
+    input.item,
+    id
+  );
+  if (existingLive) {
+    throw new AppError(
+      409,
+      "DUPLICATE_LIVE_REQUEST",
+      "A live return request already exists for this order and item"
+    );
+  }
+
   return updateRequest(id, input);
 }
 
@@ -328,3 +414,4 @@ export async function removeRequest(id: string) {
 
   return softRemoveRequest(id);
 }
+
